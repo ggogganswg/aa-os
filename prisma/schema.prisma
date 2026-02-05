@@ -1,0 +1,99 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum SystemState {
+  UNINITIALIZED
+  ASSESSING
+  MODELED
+  INSIGHT_DELIVERY
+  LONGITUDINAL_TRACKING
+  PAUSED
+}
+
+enum SessionType {
+  ASSESSMENT
+  INSIGHT
+  CHECK_IN
+  STABILIZATION
+}
+
+enum SessionPhase {
+  OPENING
+  ENGAGEMENT
+  SYNTHESIS
+  CLOSURE
+}
+
+model User {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sessions  Session[]
+  context   UserContext?
+}
+
+model Session {
+  id        String      @id @default(cuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id])
+
+  type      SessionType
+  phase     SessionPhase
+  state     SystemState
+
+  purpose   String?
+  openedAt  DateTime    @default(now())
+  closedAt  DateTime?
+
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@index([userId, openedAt])
+}
+
+model UserContext {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+
+  latestCimVersionId String?
+  latestFimVersionId String?
+  lastSessionId       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AuditEvent {
+  id        String   @id @default(cuid())
+  userId    String?
+  sessionId String?
+
+  eventType String
+  meta      Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([sessionId, createdAt])
+}
+
+model ControlFlag {
+  id        String   @id @default(cuid())
+  scope     String   // "system" or "user"
+  scopeId   String?  // null for system, userId for user
+
+  paused    Boolean  @default(false)
+  reason    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([scope, scopeId])
+}
