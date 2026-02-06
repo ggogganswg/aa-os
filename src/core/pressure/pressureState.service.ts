@@ -14,11 +14,11 @@
  * - Pressure level derived deterministically.
  */
 
-import { PrismaClient, PressureLevel, PressureState } from "@prisma/client";
+import { PrismaClient, PressureLevel, PressureState, AuditEventType } from "@prisma/client";
 
 type AuditSink = (evt: {
   userId: string;
-  action: string;
+  eventType: AuditEventType;
   timestamp: string;
   dpi?: number;
   level?: PressureLevel;
@@ -39,7 +39,7 @@ export function makePressureStateService(opts: {
         data: {
           userId: evt.userId,
           sessionId: evt.sessionId ?? null,
-          eventType: evt.action,
+          eventType: evt.eventType,
           meta: {
             dpi: evt.dpi ?? null,
             level: evt.level ?? null,
@@ -57,7 +57,7 @@ export function makePressureStateService(opts: {
   async function block(userId: string, reason: string) {
     await emit({
       userId,
-      action: "PRESSURE_MUTATION_BLOCKED",
+      eventType: AuditEventType.MUTATION_BLOCKED,
       reason,
     });
     throw new Error(reason);
@@ -101,7 +101,7 @@ export function makePressureStateService(opts: {
 
     await emit({
       userId: opts.userId,
-      action: "PRESSURE_RECORDED",
+      eventType: AuditEventType.PRESSURE_RECORDED,
       dpi: opts.dpi,
       level,
       reason: opts.reason,

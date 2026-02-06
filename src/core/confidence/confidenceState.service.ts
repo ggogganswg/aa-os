@@ -14,11 +14,16 @@
  * - Ownership enforced at write time.
  */
 
-import { PrismaClient, ConfidenceDomain, ConfidenceState } from "@prisma/client";
+import {
+  PrismaClient,
+  ConfidenceDomain,
+  ConfidenceState,
+  AuditEventType,
+} from "@prisma/client";
 
 type AuditSink = (evt: {
   userId: string;
-  action: string;
+  eventType: AuditEventType;
   timestamp: string;
   domain?: ConfidenceDomain;
   key?: string;
@@ -38,7 +43,7 @@ export function makeConfidenceStateService(opts: {
       await prisma.auditEvent.create({
         data: {
           userId: evt.userId,
-          eventType: evt.action,
+          eventType: evt.eventType,
           meta: {
             domain: evt.domain ?? null,
             key: evt.key ?? null,
@@ -57,7 +62,7 @@ export function makeConfidenceStateService(opts: {
   async function block(userId: string, reason: string) {
     await emit({
       userId,
-      action: "CONFIDENCE_MUTATION_BLOCKED",
+      eventType: AuditEventType.MUTATION_BLOCKED,
       reason,
     });
     throw new Error(reason);
@@ -94,7 +99,7 @@ export function makeConfidenceStateService(opts: {
 
     await emit({
       userId: opts.userId,
-      action: "CONFIDENCE_RECORDED",
+      eventType: AuditEventType.CONFIDENCE_RECORDED,
       domain: opts.domain,
       key: opts.key,
       value: opts.value,

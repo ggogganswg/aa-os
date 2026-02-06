@@ -13,20 +13,11 @@
  * - "lastClosedSessionId" must only ever point to a CLOSED session (per Session phase + closedAt).
  */
 
-import { PrismaClient, SessionPhase, UserContext } from "@prisma/client";
-
-type AuditAction =
-  | "USER_CONTEXT_CREATED"
-  | "USER_CONTEXT_UPDATED"
-  | "USER_CONTEXT_RESET"
-  | "USER_CONTEXT_MODELSET_ACTIVATED"
-  | "USER_CONTEXT_MODELSET_CLEARED"
-  | "USER_CONTEXT_LAST_SESSION_SET"
-  | "USER_CONTEXT_MUTATION_BLOCKED";
+import { PrismaClient, SessionPhase, UserContext, AuditEventType } from "@prisma/client";
 
 type AuditEventPayload = {
   userId: string;
-  action: AuditAction;
+  eventType: AuditEventType;
   timestamp: string;
   contextVersion?: number;
   reason?: string;
@@ -38,20 +29,9 @@ type PauseCheck = (userId: string) => Promise<{ isPaused: boolean; reason?: stri
 type AuditSink = (evt: AuditEventPayload) => Promise<void>;
 
 function isSessionClosed(session: { phase: SessionPhase; closedAt: Date | null }) {
-  // Governance: "closed" must be explicit, not implied.
   return session.phase === SessionPhase.CLOSURE && session.closedAt !== null;
 }
 
-/**
- * Minimal UserContext service dependencies:
- * - prisma: DB access
- * - isPaused: consult pause state (Ticket 1.9)
- * - audit: emit structure-only audit events (Ticket 1.8)
- *
- * If you don't inject isPaused/audit, defaults are used:
- * - isPaused: reads latest ControlFlag for scope="user", scopeId=userId (latest wins)
- * - audit: writes to AuditEvent with eventType and meta JSON
- */
 export function makeUserContextService(opts: {
   prisma: PrismaClient;
   isPaused?: PauseCheck;
@@ -79,7 +59,7 @@ export function makeUserContextService(opts: {
         data: {
           userId: evt.userId,
           sessionId: evt.sessionId ?? null,
-          eventType: evt.action,
+          eventType: evt.eventType,
           meta: {
             contextVersion: evt.contextVersion ?? null,
             modelSetId: evt.modelSetId ?? null,
@@ -97,7 +77,7 @@ export function makeUserContextService(opts: {
   async function block(userId: string, reason: string, extra?: Partial<AuditEventPayload>) {
     await emit({
       userId,
-      action: "USER_CONTEXT_MUTATION_BLOCKED",
+      eventType: AuditEventType.MUTATION_BLOCKED,
       reason,
       ...extra,
     });
@@ -114,7 +94,7 @@ export function makeUserContextService(opts: {
 
     await emit({
       userId,
-      action: "USER_CONTEXT_CREATED",
+      eventType: AuditEventType.USER_CONTEXT_CREATED,
       contextVersion: created.contextVersion,
     });
 
@@ -134,7 +114,7 @@ export function makeUserContextService(opts: {
     const session = await prisma.session.findUnique({ where: { id: sessionId } });
     if (!session) {
       await block(userId, "Session not found; cannot set lastClosedSessionId.", { sessionId });
-      throw new Error("Unreachable"); // satisfy TS; block() always throws
+      throw new Error("Unreachable");
     }
 
     if (session.userId !== userId) {
@@ -154,7 +134,7 @@ export function makeUserContextService(opts: {
 
     await emit({
       userId,
-      action: "USER_CONTEXT_LAST_SESSION_SET",
+      eventType: AuditEventType.USER_CONTEXT_LAST_SESSION_SET,
       sessionId,
       contextVersion: updated.contextVersion,
     });
@@ -175,7 +155,7 @@ export function makeUserContextService(opts: {
     const modelSet = await prisma.modelSet.findUnique({ where: { id: modelSetId } });
     if (!modelSet) {
       await block(userId, "ModelSet not found; cannot activate ModelSet.", { modelSetId });
-      throw new Error("Unreachable"); // satisfy TS; block() always throws
+      throw new Error("Unreachable");
     }
 
     if (modelSet.userId !== userId) {
@@ -191,7 +171,7 @@ export function makeUserContextService(opts: {
 
     await emit({
       userId,
-      action: "USER_CONTEXT_MODELSET_ACTIVATED",
+      eventType: AuditEventType.USER_CONTEXT_MODELSET_ACTIVATED,
       modelSetId,
       contextVersion: updated.contextVersion,
     });
@@ -214,7 +194,7 @@ export function makeUserContextService(opts: {
 
     await emit({
       userId,
-      action: "USER_CONTEXT_MODELSET_CLEARED",
+      eventType: AuditEventType.USER_CONTEXT_MODELSET_CLEARED,
       contextVersion: updated.contextVersion,
     });
 
@@ -222,7 +202,7 @@ export function makeUserContextService(opts: {
   }
 
   async function resetUserContext(userId: string): Promise<UserContext> {
-    // Governance rule: allow reset even if paused (safety action).
+    // Governance: allow reset even if paused.
     await ensureUserContext(userId);
 
     const updated = await prisma.userContext.update({
@@ -236,7 +216,7 @@ export function makeUserContextService(opts: {
 
     await emit({
       userId,
-      action: "USER_CONTEXT_RESET",
+      eventType: AuditEventType.USER_CONTEXT_RESET,
       contextVersion: updated.contextVersion,
     });
 

@@ -14,11 +14,16 @@
  * - Does not modify ModelSet status yet (later ticket).
  */
 
-import { PrismaClient, IdentityModelType, IdentityModelVersion } from "@prisma/client";
+import {
+  PrismaClient,
+  IdentityModelType,
+  IdentityModelVersion,
+  AuditEventType,
+} from "@prisma/client";
 
 type AuditSink = (evt: {
   userId: string;
-  action: string;
+  eventType: AuditEventType;
   timestamp: string;
   modelSetId?: string;
   type?: IdentityModelType;
@@ -36,7 +41,7 @@ export function makeIdentityVersionService(opts: { prisma: PrismaClient; audit?:
       await prisma.auditEvent.create({
         data: {
           userId: evt.userId,
-          eventType: evt.action,
+          eventType: evt.eventType,
           meta: {
             modelSetId: evt.modelSetId ?? null,
             type: evt.type ?? null,
@@ -56,7 +61,7 @@ export function makeIdentityVersionService(opts: { prisma: PrismaClient; audit?:
   async function block(userId: string, reason: string, extra?: Partial<Parameters<typeof audit>[0]>) {
     await emit({
       userId,
-      action: "IDENTITY_VERSION_MUTATION_BLOCKED",
+      eventType: AuditEventType.MUTATION_BLOCKED,
       reason,
       ...extra,
     });
@@ -74,7 +79,6 @@ export function makeIdentityVersionService(opts: { prisma: PrismaClient; audit?:
     type: IdentityModelType;
     payload: unknown;
   }): Promise<IdentityModelVersion> {
-    // Guard: ModelSet must exist and belong to user
     const modelSet = await prisma.modelSet.findUnique({ where: { id: opts.modelSetId } });
     if (!modelSet) {
       await block(opts.userId, "ModelSet not found; cannot create identity version.", {
@@ -91,7 +95,6 @@ export function makeIdentityVersionService(opts: { prisma: PrismaClient; audit?:
       });
     }
 
-    // Determine next version number for (modelSetId, type)
     const last = await prisma.identityModelVersion.findFirst({
       where: { modelSetId: opts.modelSetId, type: opts.type },
       orderBy: { version: "desc" },
@@ -112,7 +115,7 @@ export function makeIdentityVersionService(opts: { prisma: PrismaClient; audit?:
 
     await emit({
       userId: opts.userId,
-      action: "IDENTITY_VERSION_CREATED",
+      eventType: AuditEventType.IDENTITY_VERSION_CREATED,
       modelSetId: opts.modelSetId,
       type: opts.type,
       versionId: created.id,
@@ -130,7 +133,6 @@ export function makeIdentityVersionService(opts: { prisma: PrismaClient; audit?:
     modelSetId: string;
     type: IdentityModelType;
   }): Promise<IdentityModelVersion | null> {
-    // Ownership check (same governance)
     const modelSet = await prisma.modelSet.findUnique({ where: { id: opts.modelSetId } });
     if (!modelSet) return null;
     if (modelSet.userId !== opts.userId) return null;

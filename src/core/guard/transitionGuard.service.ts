@@ -8,7 +8,7 @@
  * - No “smart” behavior here: only structural prerequisites and safety overrides.
  *
  * Design constraints
- * - Paused state overrides all transitions.
+ * - Paused state overrides all transitions (system OR user).
  * - No Insight Delivery unless models exist.
  * - No interpretation during ASSESSING.
  * - Guard functions are pure checks + explicit errors (audited by caller).
@@ -23,14 +23,24 @@ export type GuardResult =
 export function makeTransitionGuardService(opts: { prisma: PrismaClient }) {
   const prisma = opts.prisma;
 
-  async function isUserPaused(userId: string): Promise<boolean> {
-    const latest = await prisma.controlFlag.findFirst({
+  async function isPaused(userId: string): Promise<boolean> {
+    // system pause (scopeId null) overrides everything
+    const system = await prisma.controlFlag.findFirst({
+      where: { scope: "system", scopeId: null },
+      orderBy: { createdAt: "desc" },
+      select: { paused: true },
+    });
+
+    if (system?.paused === true) return true;
+
+    // user pause
+    const user = await prisma.controlFlag.findFirst({
       where: { scope: "user", scopeId: userId },
       orderBy: { createdAt: "desc" },
       select: { paused: true },
     });
 
-    return latest?.paused === true;
+    return user?.paused === true;
   }
 
   async function hasActiveModelSet(userId: string): Promise<boolean> {
@@ -52,13 +62,13 @@ export function makeTransitionGuardService(opts: { prisma: PrismaClient }) {
   /**
    * Guard: can the system enter INSIGHT_DELIVERY?
    * Requirements:
-   * - User is not paused
+   * - System/user not paused
    * - UserContext exists and has activeModelSetId
    * - Active ModelSet contains at least one identity version (CIM or FIM)
    */
   async function canEnterInsightDelivery(userId: string): Promise<GuardResult> {
-    if (await isUserPaused(userId)) {
-      return { ok: false, reason: "User is paused; cannot enter INSIGHT_DELIVERY." };
+    if (await isPaused(userId)) {
+      return { ok: false, reason: "System/user is paused; cannot enter INSIGHT_DELIVERY." };
     }
 
     const ctx = await prisma.userContext.findUnique({
@@ -73,7 +83,10 @@ export function makeTransitionGuardService(opts: { prisma: PrismaClient }) {
 
     const hasVersions = await hasAnyIdentityVersions(ctx.activeModelSetId);
     if (!hasVersions) {
-      return { ok: false, reason: "Active ModelSet has no identity versions; cannot enter INSIGHT_DELIVERY." };
+      return {
+        ok: false,
+        reason: "Active ModelSet has no identity versions; cannot enter INSIGHT_DELIVERY.",
+      };
     }
 
     return { ok: true };
@@ -94,11 +107,15 @@ export function makeTransitionGuardService(opts: { prisma: PrismaClient }) {
    * Guard: PAUSED overrides all transitions.
    * Caller should check this before performing any state transition or session advance.
    */
-  async function canTransition(userId: string, _from: SystemState, to: SystemState): Promise<GuardResult> {
-    if (await isUserPaused(userId)) {
+  async function canTransition(
+    userId: string,
+    _from: SystemState,
+    to: SystemState
+  ): Promise<GuardResult> {
+    if (await isPaused(userId)) {
       // Allow transition into PAUSED (idempotent), block all others
       if (to === SystemState.PAUSED) return { ok: true };
-      return { ok: false, reason: "User is paused; transitions are blocked." };
+      return { ok: false, reason: "System/user is paused; transitions are blocked." };
     }
     return { ok: true };
   }
