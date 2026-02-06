@@ -15,6 +15,8 @@ import { Pool } from "pg";
 import { makeUserContextService } from "./userContext/userContext.service";
 import { makeIdentityVersionService } from "./identity/identityVersion.service";
 import { makeConfidenceStateService } from "./confidence/confidenceState.service";
+import { makePressureStateService } from "./pressure/pressureState.service";
+
 
 
 const globalForPrisma = globalThis as unknown as {
@@ -58,5 +60,7 @@ export const prisma = getPrisma();
 export const userContextService = makeUserContextService({ prisma });
 export const identityVersionService = makeIdentityVersionService({ prisma });
 export const confidenceStateService = makeConfidenceStateService({ prisma });
+export const pressureStateService = makePressureStateService({ prisma });
+
 
 

@@ -16,7 +16,7 @@ model User {
 
   identityVersions IdentityModelVersion[]
   confidenceStates ConfidenceState[]
-
+  pressureStates PressureState[]
 
 }
 
@@ -143,6 +143,28 @@ model ConfidenceState {
   @@index([sessionId, createdAt])
 }
 
+model PressureState {
+  id        String        @id @default(cuid())
+
+  userId    String
+  // Developmental Pressure Index (0–100). Service enforces bounds.
+  dpi       Int
+  level     PressureLevel
+
+  // Structure-only reason (no raw user content)
+  reason    String?
+
+  // Optional: link to the session that triggered the pressure update
+  sessionId String?
+
+  createdAt DateTime      @default(now())
+
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([sessionId, createdAt])
+}
+
 enum SystemState {
   UNINITIALIZED
   ASSESSING
@@ -183,4 +205,10 @@ enum ConfidenceDomain {
   SYSTEM
 }
 
+enum PressureLevel {
+  LOW
+  MODERATE
+  HIGH
+  CRITICAL
+}
 
