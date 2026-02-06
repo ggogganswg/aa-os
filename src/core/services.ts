@@ -16,8 +16,7 @@ import { makeUserContextService } from "./userContext/userContext.service";
 import { makeIdentityVersionService } from "./identity/identityVersion.service";
 import { makeConfidenceStateService } from "./confidence/confidenceState.service";
 import { makePressureStateService } from "./pressure/pressureState.service";
-
-
+import { makeTransitionGuardService } from "./guard/transitionGuard.service";
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
@@ -61,6 +60,4 @@ export const userContextService = makeUserContextService({ prisma });
 export const identityVersionService = makeIdentityVersionService({ prisma });
 export const confidenceStateService = makeConfidenceStateService({ prisma });
 export const pressureStateService = makePressureStateService({ prisma });
-
-
-
+export const transitionGuardService = makeTransitionGuardService({ prisma });
