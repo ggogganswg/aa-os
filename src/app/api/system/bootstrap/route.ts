@@ -3,7 +3,7 @@
  *
  * Responsibility:
  * - Create a minimal test user + session to validate the system end-to-end.
- * - Initialize UserContext with lastSessionId.
+ * - Ensure UserContext exists (no session pointer set here).
  * - Emit an audit event for traceability.
  *
  * Why this exists:
@@ -14,6 +14,7 @@
  * - Must not include personal data.
  * - Must not embed or expose secrets.
  * - Must not create prescriptive outputs; only creates structural records.
+ * - Must NOT set lastClosedSessionId here; closure-only anchor.
  */
 
 import { NextResponse } from "next/server";
@@ -36,11 +37,11 @@ export async function POST() {
     },
   });
 
-  // UserContext provides a stable "last known session" pointer for UX flows later.
+  // Ensure UserContext exists. Governance: do NOT set lastClosedSessionId on open.
   await prisma.userContext.upsert({
     where: { userId: user.id },
-    update: { lastSessionId: session.id },
-    create: { userId: user.id, lastSessionId: session.id },
+    update: {},
+    create: { userId: user.id },
   });
 
   // Audit creation for traceability (required for governance).

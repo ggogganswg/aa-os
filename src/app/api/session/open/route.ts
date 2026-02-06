@@ -4,7 +4,7 @@
  * Responsibility:
  * - Create a new session container for a user.
  * - Initialize it to OPENING phase and UNINITIALIZED system state.
- * - Update UserContext.lastSessionId.
+ * - Ensure UserContext exists (no session pointer set here).
  * - Emit an audit event for traceability.
  *
  * Why this exists:
@@ -15,6 +15,7 @@
  * - Must not create sessions for other users.
  * - Must not embed coaching/prescriptive behavior.
  * - Must always audit creation (no silent session creation).
+ * - Must NOT set lastClosedSessionId here; closure-only anchor.
  */
 
 import { NextResponse } from "next/server";
@@ -47,11 +48,11 @@ export async function POST(req: Request) {
       },
     });
 
-    // Keep a pointer to the latest session for future UX flows.
+    // Ensure UserContext exists. Governance: do NOT set lastClosedSessionId on open.
     await prisma.userContext.upsert({
       where: { userId },
-      update: { lastSessionId: session.id },
-      create: { userId, lastSessionId: session.id },
+      update: {},
+      create: { userId },
     });
 
     // Audit session creation (required).

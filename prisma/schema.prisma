@@ -6,6 +6,83 @@ datasource db {
   provider = "postgresql"
 }
 
+model User {
+  id        String       @id @default(cuid())
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  modelSets ModelSet[]
+  sessions  Session[]
+  context   UserContext?
+}
+
+model Session {
+  id        String       @id @default(cuid())
+  userId    String
+  type      SessionType
+  phase     SessionPhase
+  state     SystemState
+  purpose   String?
+  openedAt  DateTime     @default(now())
+  closedAt  DateTime?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  modelSets ModelSet[]
+  user      User         @relation(fields: [userId], references: [id])
+
+  @@index([userId, openedAt])
+}
+
+model UserContext {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  lastClosedSessionId String?
+  activeModelSetId    String?
+  contextVersion      Int      @default(1)
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([activeModelSetId])
+  @@index([lastClosedSessionId])
+}
+
+model AuditEvent {
+  id        String   @id @default(cuid())
+  userId    String?
+  sessionId String?
+  eventType String
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([sessionId, createdAt])
+}
+
+model ControlFlag {
+  id        String   @id @default(cuid())
+  scope     String
+  scopeId   String?
+  paused    Boolean  @default(false)
+  reason    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([scope, scopeId])
+}
+
+model ModelSet {
+  id        String   @id @default(cuid())
+  userId    String
+  sessionId String?
+  status    String   @default("DRAFT")
+  createdAt DateTime @default(now())
+  session   Session? @relation(fields: [sessionId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([sessionId])
+}
+
 enum SystemState {
   UNINITIALIZED
   ASSESSING
@@ -27,73 +104,4 @@ enum SessionPhase {
   ENGAGEMENT
   SYNTHESIS
   CLOSURE
-}
-
-model User {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  sessions  Session[]
-  context   UserContext?
-}
-
-model Session {
-  id        String      @id @default(cuid())
-  userId    String
-  user      User        @relation(fields: [userId], references: [id])
-
-  type      SessionType
-  phase     SessionPhase
-  state     SystemState
-
-  purpose   String?
-  openedAt  DateTime    @default(now())
-  closedAt  DateTime?
-
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-
-  @@index([userId, openedAt])
-}
-
-model UserContext {
-  id        String   @id @default(cuid())
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id])
-
-  latestCimVersionId String?
-  latestFimVersionId String?
-  lastSessionId       String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model AuditEvent {
-  id        String   @id @default(cuid())
-  userId    String?
-  sessionId String?
-
-  eventType String
-  meta      Json?
-
-  createdAt DateTime @default(now())
-
-  @@index([userId, createdAt])
-  @@index([sessionId, createdAt])
-}
-
-model ControlFlag {
-  id        String   @id @default(cuid())
-  scope     String   // "system" or "user"
-  scopeId   String?  // null for system, userId for user
-
-  paused    Boolean  @default(false)
-  reason    String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([scope, scopeId])
 }
