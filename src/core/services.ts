@@ -14,6 +14,8 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import { makeUserContextService } from "./userContext/userContext.service";
 import { makeIdentityVersionService } from "./identity/identityVersion.service";
+import { makeConfidenceStateService } from "./confidence/confidenceState.service";
+
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
@@ -55,4 +57,6 @@ function getPrisma() {
 export const prisma = getPrisma();
 export const userContextService = makeUserContextService({ prisma });
 export const identityVersionService = makeIdentityVersionService({ prisma });
+export const confidenceStateService = makeConfidenceStateService({ prisma });
+
 

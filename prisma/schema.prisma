@@ -14,7 +14,9 @@ model User {
   sessions  Session[]
   context   UserContext?
 
-    identityVersions IdentityModelVersion[]
+  identityVersions IdentityModelVersion[]
+  confidenceStates ConfidenceState[]
+
 
 }
 
@@ -113,6 +115,34 @@ model IdentityModelVersion {
   @@index([modelSetId, type, createdAt])
 }
 
+model ConfidenceState {
+  id         String           @id @default(cuid())
+
+  userId     String
+  domain     ConfidenceDomain
+
+  // The thing we’re tracking confidence about (e.g., "CIM.structure", "FIM.structure", "session.type")
+  key        String
+
+  // 0.0 to 1.0 (service enforces bounds)
+  value      Float
+
+  // Why we set it (no raw user content; structure-only)
+  reason     String?
+
+  // Optional links (structure-only)
+  modelSetId String?
+  sessionId  String?
+
+  createdAt  DateTime         @default(now())
+
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, domain, key, createdAt])
+  @@index([modelSetId, createdAt])
+  @@index([sessionId, createdAt])
+}
+
 enum SystemState {
   UNINITIALIZED
   ASSESSING
@@ -145,6 +175,12 @@ enum IdentityModelStatus {
   DRAFT
   ACTIVE
   ARCHIVED
+}
+
+enum ConfidenceDomain {
+  IDENTITY_MODEL
+  SESSION
+  SYSTEM
 }
 
 
