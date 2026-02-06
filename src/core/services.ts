@@ -13,6 +13,7 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import { makeUserContextService } from "./userContext/userContext.service";
+import { makeIdentityVersionService } from "./identity/identityVersion.service";
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
@@ -52,5 +53,6 @@ function getPrisma() {
 }
 
 export const prisma = getPrisma();
-
 export const userContextService = makeUserContextService({ prisma });
+export const identityVersionService = makeIdentityVersionService({ prisma });
+

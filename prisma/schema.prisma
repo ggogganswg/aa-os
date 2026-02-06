@@ -13,6 +13,9 @@ model User {
   modelSets ModelSet[]
   sessions  Session[]
   context   UserContext?
+
+    identityVersions IdentityModelVersion[]
+
 }
 
 model Session {
@@ -79,8 +82,35 @@ model ModelSet {
   session   Session? @relation(fields: [sessionId], references: [id])
   user      User     @relation(fields: [userId], references: [id])
 
+  identityVersions IdentityModelVersion[]
+
   @@index([userId])
   @@index([sessionId])
+}
+
+model IdentityModelVersion {
+  id         String             @id @default(cuid())
+
+  userId     String
+  modelSetId String
+
+  type       IdentityModelType
+  version    Int
+
+  // Structure-only payload. No raw transcripts. No coaching output.
+  payload    Json
+
+  status     IdentityModelStatus @default(DRAFT)
+
+  createdAt  DateTime           @default(now())
+
+  // Relations
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  modelSet   ModelSet           @relation(fields: [modelSetId], references: [id], onDelete: Cascade)
+
+  @@unique([modelSetId, type, version])
+  @@index([userId, createdAt])
+  @@index([modelSetId, type, createdAt])
 }
 
 enum SystemState {
@@ -105,3 +135,16 @@ enum SessionPhase {
   SYNTHESIS
   CLOSURE
 }
+
+enum IdentityModelType {
+  CIM
+  FIM
+}
+
+enum IdentityModelStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+
