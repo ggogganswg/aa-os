@@ -242,6 +242,10 @@ enum AuditEventType {
   SESSION_PHASE_ADVANCED
 
   USER_CONTEXT_UPDATED
+
+  // --- Epic 2.1 ---
+  PROJECTION_ACCESSED
 }
+
 
 

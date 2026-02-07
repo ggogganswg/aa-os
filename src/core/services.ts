@@ -12,13 +12,14 @@ import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
+
 import { makeUserContextService } from "./userContext/userContext.service";
 import { makeIdentityVersionService } from "./identity/identityVersion.service";
 import { makeConfidenceStateService } from "./confidence/confidenceState.service";
 import { makePressureStateService } from "./pressure/pressureState.service";
 import { makeTransitionGuardService } from "./guard/transitionGuard.service";
 import { makeControlFlagService } from "./control/controlFlag.service";
-
+import { ProjectionAuditService } from "./audit/ProjectionAudit.service";
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
@@ -58,9 +59,12 @@ function getPrisma() {
 }
 
 export const prisma = getPrisma();
+
 export const userContextService = makeUserContextService({ prisma });
 export const identityVersionService = makeIdentityVersionService({ prisma });
 export const confidenceStateService = makeConfidenceStateService({ prisma });
 export const pressureStateService = makePressureStateService({ prisma });
 export const transitionGuardService = makeTransitionGuardService({ prisma });
 export const controlFlagService = makeControlFlagService({ prisma });
+
+export const projectionAuditService = new ProjectionAuditService(prisma);
