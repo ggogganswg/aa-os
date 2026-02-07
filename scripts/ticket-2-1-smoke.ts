@@ -3,14 +3,12 @@
 /**
  * Ticket 2.1 Smoke Test — Projection Framework
  *
- * Purpose:
- * - Validate projection registry → guard → executor wiring
- * - Ensure audit fires exactly once on success
- * - Ensure audit does NOT fire when blocked
- * - Ensure the projection composition root can be constructed
- *
  * Run (PowerShell / Windows):
  *   npx tsx ./scripts/ticket-2-1-smoke.ts
+ *
+ * IMPORTANT:
+ * This file is for local smoke validation. If your Next.js build includes /scripts
+ * in TypeScript compilation, ensure tsconfig excludes scripts (handled separately).
  */
 
 import { ProjectionExecutor } from "../src/projections/contracts/ProjectionExecutor";
@@ -32,7 +30,7 @@ function assert(condition: any, message: string): void {
 
 function makeCtx(auditSpy: (e: any) => Promise<void>): ProjectionContext {
   return {
-    db: {} as any, // read surface not exercised in this smoke test
+    db: {} as any,
     now: () => new Date("2026-02-07T00:00:00.000Z"),
     audit: auditSpy as any,
   };
@@ -53,7 +51,11 @@ async function test_executes_and_audits_once() {
   const executor = new ProjectionExecutor(
     new ProjectionRegistry([projection]),
     new ProjectionGuardService(),
-    async () => makeCtx(async (e) => auditCalls.push(e))
+    async () =>
+      makeCtx(async (e) => {
+        auditCalls.push(e);
+        return;
+      })
   );
 
   const out = await executor.execute("session.timeline", { userId: "user_1" });
@@ -84,7 +86,11 @@ async function test_no_audit_when_guard_blocks() {
   const executor = new ProjectionExecutor(
     new ProjectionRegistry([projection]),
     new BlockingGuard(),
-    async () => makeCtx(async (e) => auditCalls.push(e))
+    async () =>
+      makeCtx(async (e) => {
+        auditCalls.push(e);
+        return;
+      })
   );
 
   let threw = false;
@@ -114,7 +120,11 @@ async function test_no_audit_when_validate_throws() {
   const executor = new ProjectionExecutor(
     new ProjectionRegistry([projection]),
     new ProjectionGuardService(),
-    async () => makeCtx(async (e) => auditCalls.push(e))
+    async () =>
+      makeCtx(async (e) => {
+        auditCalls.push(e);
+        return;
+      })
   );
 
   let threw = false;
@@ -129,8 +139,6 @@ async function test_no_audit_when_validate_throws() {
 }
 
 function test_composition_root_constructs() {
-  // This should not throw. It wires registry/guard/read DB/audit service.
-  // It will execute real prisma/audit wiring only when projections run.
   const executor = createProjectionExecutor();
   assert(!!executor, "createProjectionExecutor() should return an executor");
 }
