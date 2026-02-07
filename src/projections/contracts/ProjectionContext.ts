@@ -1,4 +1,6 @@
-import { DbReadContext } from "../../db-read/types";
+// src/projections/contracts/ProjectionContext.ts
+
+import { DbReadContext } from "../db-read/types";
 import { ProjectionName, SourceModelKey } from "./types";
 
 export type ProjectionAccessAudit = {
