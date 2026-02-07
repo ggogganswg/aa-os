@@ -33,10 +33,10 @@ export class ProjectionAuditService {
         eventType: AuditEventType.PROJECTION_ACCESSED,
 
         /**
-         * Metadata is structural only.
+         * meta is structural only.
          * No semantic meaning, no interpretation.
          */
-        metadata: {
+        meta: {
           projection: event.projection,
           inputsHash: event.inputsHash,
           sources: event.sources,
